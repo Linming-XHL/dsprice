@@ -1,0 +1,126 @@
+name: Build & Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: win
+            artifact: dsprice-win-x86_64.exe
+          - os: ubuntu-latest
+            name: linux
+            artifact: dsprice-linux-x86_64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk python3-venv
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller -r requirements.txt
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install pyinstaller -r requirements.txt
+
+      - name: Build binary (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          pyinstaller --noconfirm --onefile --windowed \
+            --name dsprice \
+            --collect-submodules cryptography \
+            app.py
+          cp dist/dsprice.exe "${{ matrix.artifact }}"
+
+      - name: Build binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          .venv/bin/pyinstaller --noconfirm --onefile \
+            --name dsprice \
+            --collect-submodules cryptography \
+            app.py
+          cp dist/dsprice "${{ matrix.artifact }}"
+
+      - name: Smoke test (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          test -x "${{ matrix.artifact }}" && echo "binary OK"
+          file "${{ matrix.artifact }}" || true
+
+      - name: Smoke test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          test -x "${{ matrix.artifact }}" && echo "binary OK"
+          file "${{ matrix.artifact }}" || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error
+
+  release:
+    name: Release (Beijing time version)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute version in Beijing timezone
+        id: ver
+        env:
+          TZ: Asia/Shanghai
+        run: echo "VERSION=$(date +%Y%m%dT%H%M%S)" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: ${{ steps.ver.outputs.version }}
+          body: |
+            DeepSeek API 价格峰谷指示器
+
+            - 版本（北京时间）: ${{ steps.ver.outputs.version }}
+            - Windows: `dsprice-win-x86_64.exe`
+            - Linux: `dsprice-linux-x86_64`（运行时需 X11/Wayland 图形环境，托盘依赖系统 AppIndicator 库，缺失时自动回退为窗口模式）
+          files: |
+            artifacts/dsprice-win-x86_64.exe
+            artifacts/dsprice-linux-x86_64
+          draft: false
+          prerelease: false
