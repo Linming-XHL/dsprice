@@ -82,9 +82,9 @@ pyinstaller -F -n dsprice --collect-submodules cryptography --exclude-module gi 
 
 ## 使用说明
 
+- 启动即显示主窗口（默认右下角）；点击关闭按钮隐藏到托盘，程序继续在后台运行
 - Windows：左键单击托盘图标即可显示/隐藏主界面；右键菜单含「显示/隐藏」「退出」
 - Linux（AppIndicator）：点击托盘图标弹出菜单，选择「显示/隐藏」切换主界面，或「退出」结束程序
-- 点击主界面关闭按钮只会隐藏到托盘，不会退出程序
 
 ## 项目结构
 

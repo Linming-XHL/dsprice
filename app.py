@@ -97,7 +97,7 @@ def make_icon(color_hex, size=64):
     return img
 
 
-def make_key_icon(size=18, color="#7A7A7A", hole_color="#F0F0F0"):
+def make_key_icon(size=18, color="#7A7A7A", hole_color=(240, 240, 240)):
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     s = size / 18.0
@@ -197,6 +197,11 @@ def pil_to_photo(img):
     return tk.PhotoImage(data=base64.b64encode(buf.getvalue()).decode("ascii"))
 
 
+def tk_color_rgb(widget, name):
+    r, g, b = widget.winfo_rgb(name)
+    return (r >> 8, g >> 8, b >> 8)
+
+
 def ensure_display():
     if not os.environ.get("DISPLAY"):
         sockets = sorted(glob.glob("/tmp/.X11-unix/X*"))
@@ -246,7 +251,7 @@ class DSPriceApp:
         top_bar.pack(fill="x", padx=8, pady=(10, 0))
         self.time_lbl = tk.Label(top_bar, textvariable=self.time_var, font=(self.family, 10), fg="#888888")
         self.time_lbl.pack(side="left", expand=True)
-        self.key_img = pil_to_photo(make_key_icon(18, "#7A7A7A", bg))
+        self.key_img = pil_to_photo(make_key_icon(18, "#7A7A7A", tk_color_rgb(self.root, bg)))
         self.key_btn = tk.Button(top_bar, image=self.key_img, command=self.open_config, bd=0,
                                  relief="flat", bg=bg, activebackground=bg, highlightthickness=0, cursor="hand2")
         self.key_btn.pack(side="right")
@@ -268,10 +273,7 @@ class DSPriceApp:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self._place_bottom_right()
         self.root.bind("<Map>", self._on_map)
-        if self._has_tray:
-            self.root.withdraw()
-        else:
-            self._hidden = False
+        self._hidden = False
 
         if self._api_key:
             self.balance_var.set("余额: 获取中…")
