@@ -46,26 +46,21 @@ def beijing_now():
 
 def next_peak_start(now):
     day = now.date()
-    is_workday = now.weekday() < 5
     hm = now.hour * 60 + now.minute
-    if is_workday:
-        if hm < 9 * 60:
-            return dt.datetime.combine(day, dt.time(9, 0))
-        if 12 * 60 <= hm < 14 * 60:
-            return dt.datetime.combine(day, dt.time(14, 0))
+    if hm < 9 * 60:
+        return dt.datetime.combine(day, dt.time(9, 0))
+    if 12 * 60 <= hm < 14 * 60:
+        return dt.datetime.combine(day, dt.time(14, 0))
     d = day + dt.timedelta(days=1)
-    while d.weekday() >= 5:
-        d += dt.timedelta(days=1)
     return dt.datetime.combine(d, dt.time(9, 0))
 
 
 def get_status(now):
     hm = now.hour * 60 + now.minute
-    if now.weekday() < 5:
-        for start_h, end_h in PEAK_PERIODS:
-            if start_h * 60 <= hm < end_h * 60:
-                end = dt.datetime.combine(now.date(), dt.time(end_h))
-                return True, end - now
+    for start_h, end_h in PEAK_PERIODS:
+        if start_h * 60 <= hm < end_h * 60:
+            end = dt.datetime.combine(now.date(), dt.time(end_h))
+            return True, end - now
     start = next_peak_start(now)
     return False, start - now
 
