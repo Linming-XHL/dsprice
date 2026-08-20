@@ -62,6 +62,8 @@ jobs:
           .venv/bin/pyinstaller --noconfirm --onefile \
             --name dsprice \
             --collect-submodules cryptography \
+            --exclude-module gi \
+            --exclude-module pygtkcompat \
             app.py
           cp dist/dsprice "${{ matrix.artifact }}"
 
@@ -118,7 +120,7 @@ jobs:
 
             - 版本（北京时间）: ${{ steps.ver.outputs.version }}
             - Windows: `dsprice-win-x86_64.exe`
-            - Linux: `dsprice-linux-x86_64`（运行时需 X11/Wayland 图形环境，托盘依赖系统 AppIndicator 库，缺失时自动回退为窗口模式）
+            - Linux: `dsprice-linux-x86_64`（运行时需 X11/Wayland 图形环境；未打包 GTK/AppIndicator 依赖，托盘不可用或 X11 可用时自动回退为窗口模式）
           files: |
             artifacts/dsprice-win-x86_64.exe
             artifacts/dsprice-linux-x86_64

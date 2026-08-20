@@ -2,6 +2,7 @@ import base64
 import datetime as dt
 import glob
 import hashlib
+import io
 import json
 import os
 import platform
@@ -17,7 +18,7 @@ try:
     import pystray
 except Exception:
     pystray = None
-from PIL import Image, ImageDraw, ImageTk
+from PIL import Image, ImageDraw
 
 PEAK_COLOR = "#F44336"
 VALLEY_COLOR = "#4CAF50"
@@ -190,6 +191,12 @@ class Config:
         self.data["api_key_enc"] = f.encrypt(key.encode()).decode()
 
 
+def pil_to_photo(img):
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return tk.PhotoImage(data=base64.b64encode(buf.getvalue()).decode("ascii"))
+
+
 def ensure_display():
     if not os.environ.get("DISPLAY"):
         sockets = sorted(glob.glob("/tmp/.X11-unix/X*"))
@@ -239,7 +246,7 @@ class DSPriceApp:
         top_bar.pack(fill="x", padx=8, pady=(10, 0))
         self.time_lbl = tk.Label(top_bar, textvariable=self.time_var, font=(self.family, 10), fg="#888888")
         self.time_lbl.pack(side="left", expand=True)
-        self.key_img = ImageTk.PhotoImage(make_key_icon(18, "#7A7A7A", bg))
+        self.key_img = pil_to_photo(make_key_icon(18, "#7A7A7A", bg))
         self.key_btn = tk.Button(top_bar, image=self.key_img, command=self.open_config, bd=0,
                                  relief="flat", bg=bg, activebackground=bg, highlightthickness=0, cursor="hand2")
         self.key_btn.pack(side="right")
@@ -254,7 +261,7 @@ class DSPriceApp:
         self.balance_lbl = tk.Label(self.root, textvariable=self.balance_var, font=(self.family, 10), fg="#555555")
         self.balance_lbl.pack()
 
-        window_icon = ImageTk.PhotoImage(make_icon(VALLEY_COLOR, 64))
+        window_icon = pil_to_photo(make_icon(VALLEY_COLOR, 64))
         self.root.iconphoto(True, window_icon)
         self._window_icon = window_icon
 

@@ -68,13 +68,17 @@ sudo apt install python3-tk python3-gi gir1.2-appindicator3-0.1
 
 ## 打包为可执行文件（可选）
 
+GitHub Actions 已配置 `.github/workflows/build-release.yml`，推送到 `main` 或手动触发即可自动用 PyInstaller 打包 Windows（`.exe`）与 Linux 二进制，并以北京时间时间戳（如 `20260820T142035`）发布 Release。
+
+本地手动打包参考：
+
 ```bash
 pip install pyinstaller
-pyinstaller -F -w -n dsprice app.py
+pyinstaller -F -w -n dsprice --collect-submodules cryptography app.py   # Windows
+pyinstaller -F -n dsprice --collect-submodules cryptography --exclude-module gi app.py   # Linux
 ```
 
-- Windows 下会生成 `dist/dsprice.exe`（`-w` 隐藏控制台窗口）
-- Linux 下会生成 `dist/dsprice`
+> 说明：Linux 打包版未捆绑 GTK/AppIndicator，托盘在无 X11 的系统上会自动回退为直接显示主窗口。
 
 ## 使用说明
 
