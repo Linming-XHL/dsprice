@@ -203,6 +203,8 @@ def tk_color_rgb(widget, name):
 
 
 def ensure_display():
+    if os.name == "nt" or sys.platform == "darwin":
+        return
     if not os.environ.get("DISPLAY"):
         sockets = sorted(glob.glob("/tmp/.X11-unix/X*"))
         if sockets:
