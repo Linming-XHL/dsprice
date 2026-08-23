@@ -30,6 +30,7 @@ VALLEY_LABEL = "梁文谷"
 BEIJING_OFFSET = dt.timedelta(hours=8)
 PEAK_PERIODS = ((9, 12), (14, 18))
 NEAR_END = dt.timedelta(minutes=5)
+WEEKEND_VALLEY_START = dt.date(2026, 8, 23)
 
 WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 
@@ -45,23 +46,31 @@ def beijing_now():
     return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) + BEIJING_OFFSET
 
 
+def is_weekend_valley(day):
+    return day >= WEEKEND_VALLEY_START and day.weekday() >= 5
+
+
 def next_peak_start(now):
     day = now.date()
     hm = now.hour * 60 + now.minute
-    if hm < 9 * 60:
-        return dt.datetime.combine(day, dt.time(9, 0))
-    if 12 * 60 <= hm < 14 * 60:
-        return dt.datetime.combine(day, dt.time(14, 0))
+    if not is_weekend_valley(day):
+        if hm < 9 * 60:
+            return dt.datetime.combine(day, dt.time(9, 0))
+        if 12 * 60 <= hm < 14 * 60:
+            return dt.datetime.combine(day, dt.time(14, 0))
     d = day + dt.timedelta(days=1)
+    while is_weekend_valley(d):
+        d += dt.timedelta(days=1)
     return dt.datetime.combine(d, dt.time(9, 0))
 
 
 def get_status(now):
     hm = now.hour * 60 + now.minute
-    for start_h, end_h in PEAK_PERIODS:
-        if start_h * 60 <= hm < end_h * 60:
-            end = dt.datetime.combine(now.date(), dt.time(end_h))
-            return True, end - now
+    if not is_weekend_valley(now.date()):
+        for start_h, end_h in PEAK_PERIODS:
+            if start_h * 60 <= hm < end_h * 60:
+                end = dt.datetime.combine(now.date(), dt.time(end_h))
+                return True, end - now
     start = next_peak_start(now)
     return False, start - now
 
