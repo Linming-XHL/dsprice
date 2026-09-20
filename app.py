@@ -32,17 +32,84 @@ PEAK_PERIODS = ((9, 12), (14, 18))
 NEAR_END = dt.timedelta(minutes=5)
 WEEKEND_VALLEY_START = dt.date(2026, 8, 23)
 
-# 2026 年中国法定节假日（按全天空闲时段计费）。
-# 依据国务院办公厅通知整理，每年需手动更新一次。
-HOLIDAYS_2026 = (
-    frozenset(dt.date(2026, 1, d) for d in range(1, 4))      # 元旦
-    | frozenset(dt.date(2026, 2, d) for d in range(15, 24))   # 春节
-    | frozenset(dt.date(2026, 4, d) for d in range(4, 7))     # 清明节
-    | frozenset(dt.date(2026, 5, d) for d in range(1, 6))     # 劳动节
-    | frozenset(dt.date(2026, 6, d) for d in range(19, 22))   # 端午节
-    | frozenset(dt.date(2026, 9, d) for d in range(25, 28))   # 中秋节
-    | frozenset(dt.date(2026, 10, d) for d in range(1, 8))    # 国庆节
-)
+# ============================================================
+# 法定节假日数据
+# ============================================================
+
+# 固定公历日期的法定节假日：(月, 日) 集合
+# 元旦、劳动节、国庆节在公历上的日期固定，不随年份变化
+FIXED_HOLIDAYS = {
+    (1, 1),        # 元旦
+    (5, 1), (5, 2),  # 劳动节（2025 年起法定假日为 2 天）
+    (10, 1), (10, 2), (10, 3),  # 国庆节（法定假日 3 天）
+}
+
+# 农历节日及调休后的完整放假区间，逐年列出。
+# 涵盖春节（含除夕起）、清明节、端午节、中秋节。
+# 数据来源：国务院办公厅通知及农历公历换算，更新至 2030 年。
+HOLIDAYS_BY_YEAR = {
+    2026: {
+        "spring_festival": (dt.date(2026, 2, 15), dt.date(2026, 2, 23)),
+        "qingming": (dt.date(2026, 4, 4), dt.date(2026, 4, 6)),
+        "dragon_boat": (dt.date(2026, 6, 19), dt.date(2026, 6, 19)),
+        "mid_autumn": (dt.date(2026, 9, 25), dt.date(2026, 9, 25)),
+    },
+    2027: {
+        "spring_festival": (dt.date(2027, 2, 5), dt.date(2027, 2, 13)),
+        "qingming": (dt.date(2027, 4, 3), dt.date(2027, 4, 5)),
+        "dragon_boat": (dt.date(2027, 6, 9), dt.date(2027, 6, 9)),
+        "mid_autumn": (dt.date(2027, 9, 15), dt.date(2027, 9, 15)),
+    },
+    2028: {
+        "spring_festival": (dt.date(2028, 1, 25), dt.date(2028, 2, 1)),
+        "qingming": (dt.date(2028, 4, 2), dt.date(2028, 4, 4)),
+        "dragon_boat": (dt.date(2028, 5, 28), dt.date(2028, 5, 28)),
+        "mid_autumn": (dt.date(2028, 10, 3), dt.date(2028, 10, 3)),
+    },
+    2029: {
+        "spring_festival": (dt.date(2029, 2, 11), dt.date(2029, 2, 18)),
+        "qingming": (dt.date(2029, 4, 4), dt.date(2029, 4, 6)),
+        "dragon_boat": (dt.date(2029, 6, 16), dt.date(2029, 6, 16)),
+        "mid_autumn": (dt.date(2029, 9, 22), dt.date(2029, 9, 22)),
+    },
+    2030: {
+        "spring_festival": (dt.date(2030, 2, 2), dt.date(2030, 2, 9)),
+        "qingming": (dt.date(2030, 4, 5), dt.date(2030, 4, 7)),
+        "dragon_boat": (dt.date(2030, 6, 5), dt.date(2030, 6, 5)),
+        "mid_autumn": (dt.date(2030, 9, 12), dt.date(2030, 9, 12)),
+    },
+}
+
+# 将 HOLIDAYS_BY_YEAR 展开为 (起, 止) 区间列表，便于快速查询
+HOLIDAY_RANGES = []
+for _year, _festivals in HOLIDAYS_BY_YEAR.items():
+    for _start, _end in _festivals.values():
+        HOLIDAY_RANGES.append((_start, _end))
+
+
+def is_holiday(day):
+    """判断某天是否落在法定节假日（含调休放假区间）内。"""
+    # 固定公历日期的节日
+    if (day.month, day.day) in FIXED_HOLIDAYS:
+        return True
+    # 农历节日的逐年放假区间
+    for start, end in HOLIDAY_RANGES:
+        if start <= day <= end:
+            return True
+    return False
+
+
+def is_valley_day(day):
+    """判断某天是否全天按空闲时段计费。
+
+    法定节假日优先，不受 WEEKEND_VALLEY_START 限制；
+    周末只在 WEEKEND_VALLEY_START 之后才纳入空闲时段。
+    调休上班的周末仍按周末处理，无需特殊判断。
+    """
+    if is_holiday(day):
+        return True
+    return day >= WEEKEND_VALLEY_START and day.weekday() >= 5
+
 
 WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 
@@ -56,18 +123,6 @@ EDGE_MARGIN = 24
 
 def beijing_now():
     return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) + BEIJING_OFFSET
-
-
-def is_valley_day(day):
-    """判断某天是否全天按空闲时段计费。
-
-    法定节假日优先，不受 WEEKEND_VALLEY_START 限制；
-    周末只在 WEEKEND_VALLEY_START 之后才纳入空闲时段。
-    调休上班的周末仍按周末处理，因此无需特殊判断。
-    """
-    if day in HOLIDAYS_2026:
-        return True
-    return day >= WEEKEND_VALLEY_START and day.weekday() >= 5
 
 
 def next_peak_start(now):
